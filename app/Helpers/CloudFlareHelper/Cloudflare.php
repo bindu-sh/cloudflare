@@ -2,72 +2,49 @@
 
 namespace App\Helpers\CloudFlareHelper;
 use App\Models\Cloudflare\Account;
+use App\Models\Cloudflare\DnsRecords;
 use App\Models\Cloudflare\Domain;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 
 class Cloudflare{
 
-    public static function getAccounts(){
 
-        $url = "https://api.cloudflare.com/client/v4/accounts";
-        $client=new Client();
-        $response = $client->request('GET', $url, [
-            'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2' ,
-            ]
-        ]);
-        $res=$response->getBody()->getContents();
-        $result=json_decode($res,true);
-        return $result;
-    }
     public static function getDomains(Account $account){
-       $accounts=$account->get();
 
         $url = "https://api.cloudflare.com/client/v4/zones";
         $client=new Client();
-        $response = $client->request('GET', $url, [
-            'headers' => [
-                'X-Auth-Email' =>$accounts[0]->account_name,
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2' ,
-            ]
-        ]);
-        $data=$response->getBody()->getContents();
-        $result=json_decode($data,true);
+        try {
+            $response = $client->request('GET', $url, [
+                'headers' => [
+                    'X-Auth-Email' =>$account->email,
+                    'X-Auth-Key' => $account->auth_key,
+                ]
+            ]);
+            $data=$response->getBody()->getContents();
+            $result=json_decode($data,true);
+            return $result;
+        } catch (GuzzleException $e) {
+            echo $e;
+        }
 
-        return $result;
     }
     public function insertZoneInCloudflare(Account $account){
-        $accounts=$account->get();
+
         $url = "https://api.cloudflare.com/client/v4/zones";
         $client=new Client();
         $response1 = $client->request('POST', $url, [
             'name'=>'cloud-flare.com',
             'jump_start'=>true,
             'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2' ,
+                'X-Auth-Email' =>$account->email,
+                'X-Auth-Key' =>$account->auth_key,
             ]
         ]);
     }
 
-    public static function getListDns($domainId){
-        if(isset($domainId) && !empty($domainId)){
-            /** Id is Not Empty */
-            $url = "https://api.cloudflare.com/client/v4/zones/".$domainId."/dns_records";
-
-            $client = new Client();
-            $response = $client->request('GET ', $url, [
-                'headers' => [
-                    'X-Auth-Email' => 'bindu07.ideaclan@gmail.com',
-                    'X-Auth-Key' => 'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
-                    'Content-Type' => 'application/json'
-                ]
-            ]);
-            $data = $response->getBody()->getContents();
-            $res=json_decode($data, true);
-        }
-        $getZones=domain::all();
+    public static function getDnsList(Account $account){
+        $getZones=Domain::where(['account_id'=>$account->account_id])->get();
         $res=[];
         foreach($getZones as $key=>$value) {
             $url = "https://api.cloudflare.com/client/v4/zones/" . $value->zoneid . "/dns_records";
@@ -75,8 +52,8 @@ class Cloudflare{
             $client = new Client();
             $response = $client->request('GET ', $url, [
                 'headers' => [
-                    'X-Auth-Email' => 'bindu07.ideaclan@gmail.com',
-                    'X-Auth-Key' => 'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
+                    'X-Auth-Email' => $account->email,
+                    'X-Auth-Key' => $account->auth_key,
                     'Content-Type' => 'application/json'
                 ]
             ]);
@@ -84,26 +61,18 @@ class Cloudflare{
             $res[]=json_decode($data, true);
 
         }
-
         return ['dnsRecords'=>$res];
     }
 
-    public static function createDns(){
+    public static function createDns(Account $account,$data){
         $url = "https://api.cloudflare.com/client/v4/zones/cfa9c011d0c331c7a241b4c235ed8b79/dns_records";
         $client = new Client();
         $response = $client->request('POST', $url, [
             /** Change values  **/
-            'json'=>[
-               "type"=>"A",
-                "name"=>"testbin.com",
-                "content"=>"127.0.0.1",
-                "ttl"=>120,
-                "priority"=>10,
-                "proxied"=>false
-                ],
+            'json'=>$data,
             'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
+                'X-Auth-Email' => $account->email,
+                'X-Auth-Key' => $account->auth_key,
                 'Content-Type'=>'application/json'
             ]
         ]);
@@ -111,23 +80,33 @@ class Cloudflare{
         $res=json_decode($data,true);
         return $res;
     }
-    public static function deleteDns(){
-        $url = "https://api.cloudflare.com/client/v4/zones/cfa9c011d0c331c7a241b4c235ed8b79/dns_records/c3eb4975e35eb024aede8ee17d467c9d";
-        $client = new Client();
-        $response = $client->request('DELETE ', $url, [
+    public static function deleteDns($domain_id){
+        $dnsRecord=DnsRecords::where(['zone_id'=>$domain_id])->get();
+        $domain=Domain::where(['zoneid'=>$domain_id])->first();
+        $account=Account::where(['account_id'=>$domain->account_id])->first();
+        foreach($dnsRecord as $key=>$value){
+            $url = "https://api.cloudflare.com/client/v4/zones/".$domain_id."/dns_records/$value->identifier";
+            $client = new Client();
+            $response = $client->request('DELETE ', $url, [
 
-            'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
-                'Content-Type'=>'application/json'
-            ]
-        ]);
-        $data=$response->getBody()->getContents();
-        $res=json_decode($data,true);
-        return $res;
+                'headers' => [
+                    'X-Auth-Email' =>$account->email,
+                    'X-Auth-Key' =>$account->auth_key,
+                    'Content-Type'=>'application/json'
+                ]
+            ]);
+            $data=$response->getBody()->getContents();
+            $res=json_decode($data,true);
+
+            $dnsRecordDDelete=DnsRecords::find($value->id);
+            $dnsRecordDDelete->delete();
+            return $res;
+        }
+
     }
-    public static function updateDns(){
-        $url = "https://api.cloudflare.com/client/v4/zones/cfa9c011d0c331c7a241b4c235ed8b79/dns_records/66e93d33065701190bbe64723fd7094a";
+    public static function updateDns(Domain $domain,$dnsid){
+        $account=Account::where(['account_id'=>$domain->account_id])->first();
+        $url = "https://api.cloudflare.com/client/v4/zones/".$domain->zoneid."/dns_records/".$dnsid."";
         $client=new Client();
         $response = $client->request('Put ', $url, [
             'json'=>[
@@ -137,8 +116,8 @@ class Cloudflare{
                 "ttl"=>1,
                "proxied"=>false],
             'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
+                'X-Auth-Email' =>$account->email,
+                'X-Auth-Key' =>$account->auth_key,
                 'Content-Type'=>'application/json'
             ]
         ]);
@@ -146,33 +125,35 @@ class Cloudflare{
 
         return $data;
     }
-    public static function deleteZones(){
-        $url='https://api.cloudflare.com/client/v4/zones/4245e0a32d0b9da30b5f9cf63c61aa94';
+    public static function deleteZones(Domain $domain){
+        $account=Account::where(['account_id'=>$domain->account_id])->first();
+        $url='https://api.cloudflare.com/client/v4/zones/'.$domain->zoneid;
         $client=new Client();
         $response = $client->request('DELETE', $url, [
             'headers' => [
-                'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
+                'X-Auth-Email' =>$account->email,
+                'X-Auth-Key' =>$account->auth_key,
                 'Content-Type'=>'application/json'
             ]
         ]);
     }
-    public static function purgeCacheByFile(Domain $domain){
-        $domains=$domain->get();
-        foreach($domains as $key=>$value){
-            $url='https://api.cloudflare.com/client/v4/zones/'.$value->zoneid.'/purge_cache';
+    public static function purgeCacheForAll(Domain $domain){
+        $account=Account::where(['account_id'=>$domain->account_id])->first();
+
+            $url='https://api.cloudflare.com/client/v4/zones/'.$domain->zoneid.'/purge_cache';
             $client=new Client();
             $response = $client->request('POST', $url, [
-                'json'=>'{"files":["http://www.example.com/css/styles.css",{"url":"http://www.example.com/cat_picture.jpg","headers":{"Origin":"https://www.cloudflare.com","CF-IPCountry":"US","CF-Device-Type":"desktop"}}]}',
-                'headers' => [
-                    'X-Auth-Email' =>'bindu07.ideaclan@gmail.com',
-                    'X-Auth-Key' =>'f1f0a0e8373cf871ba12e4f0ae36a8ca24aa2',
+                'json'=>[
+                    "purge_everything"=>true],
+                    'headers' => [
+                    'X-Auth-Email' =>$account->email,
+                    'X-Auth-Key' =>$account->auth_key,
                     'Content-Type'=>'application/json'
                 ]
             ]);
             $data=$response->getBody()->getContents();
-            dd($data);
-        }
+            $res=json_decode($data, true);
+           return $res;
 
     }
 }

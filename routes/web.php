@@ -21,5 +21,8 @@ Auth::routes();
 
 Route::get('/home', 'HomeController@index')->name('home');
 Route::get('/insertDns', 'HomeController@insertDNSRecords')->name('insertDns');
-Route::get('/accounts','HomeController@fetchAccounts')->name('accounts');
+Route::get('/domains','HomeController@fetchDomains')->name('domains');
+Route::get('/dnsRecords','HomeController@getDNSList')->name('dnsRecords');
+Route::get('/deleteDns','HomeController@deleteDns')->name('deleteDns');
+Route::get('/deleteZones','HomeController@deleteZones')->name('deleteZones');
 

@@ -17,11 +17,12 @@ class CreateCloudflareRecordsTable extends Migration
             $table->id();
             $table->text('zone_id');
             $table->text('identifier');
-            $table->text('type');
-            $table->text('name');
+            $table->string('type');
+            $table->string('name');
             $table->text('content');
-            $table->text('ttl');
-            $table->text('proxy_status');
+            $table->string('ttl');
+            $table->string('proxy_status');
+            $table->softDeletes();
             $table->timestamps();
         });
     }
