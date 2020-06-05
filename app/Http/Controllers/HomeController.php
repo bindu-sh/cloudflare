@@ -49,7 +49,14 @@ class HomeController extends Controller
             $dnsid='66e93d33065701190bbe64723fd7094a';
         }
         $Domain=Domain::where(['zoneid'=>$domain_id])->first();
-        Cloudflare::updateDns($Domain,$dnsid);
+        $data=[
+            "type"=>"CNAME",
+            "name"=>"admin.alphabeta.com",
+            "content"=>"148.72.249.186",
+            "ttl"=>1,
+            "proxied"=>false
+        ];
+        Cloudflare::updateDns($Domain,$dnsid,$data);
     }
 
     public function createDns(Request $request){
@@ -127,7 +134,12 @@ class HomeController extends Controller
                 'zoneid'=>$value['id'],
                 'status'=>$value['status']
             );
-            Cloudflare::insertZoneInCloudflare($account);
+
+            $data=[
+                'name'=>'cloud-flare.com',
+                'jump_start'=>true,
+            ];
+            Cloudflare::insertZoneInCloudflare($account,$data);
 
         }
         domain::insert($insertDomain);

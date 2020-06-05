@@ -29,13 +29,12 @@ class Cloudflare{
         }
 
     }
-    public function insertZoneInCloudflare(Account $account){
+    public function insertZoneInCloudflare(Account $account,$data){
 
         $url = "https://api.cloudflare.com/client/v4/zones";
         $client=new Client();
         $response1 = $client->request('POST', $url, [
-            'name'=>'cloud-flare.com',
-            'jump_start'=>true,
+            json=>$data,
             'headers' => [
                 'X-Auth-Email' =>$account->email,
                 'X-Auth-Key' =>$account->auth_key,
@@ -65,7 +64,8 @@ class Cloudflare{
     }
 
     public static function createDns(Account $account,$data){
-        $url = "https://api.cloudflare.com/client/v4/zones/cfa9c011d0c331c7a241b4c235ed8b79/dns_records";
+        $domain=Domain::where(['account_id'=>$account->account_id])->first();
+        $url = "https://api.cloudflare.com/client/v4/zones/".$domain->zoneid."/dns_records";
         $client = new Client();
         $response = $client->request('POST', $url, [
             /** Change values  **/
@@ -104,17 +104,12 @@ class Cloudflare{
         }
 
     }
-    public static function updateDns(Domain $domain,$dnsid){
+    public static function updateDns(Domain $domain,$dnsid,$data){
         $account=Account::where(['account_id'=>$domain->account_id])->first();
         $url = "https://api.cloudflare.com/client/v4/zones/".$domain->zoneid."/dns_records/".$dnsid."";
         $client=new Client();
         $response = $client->request('Put ', $url, [
-            'json'=>[
-                "type"=>"CNAME",
-                "name"=>"admin.alphabeta.com",
-                "content"=>"148.72.249.186",
-                "ttl"=>1,
-               "proxied"=>false],
+            'json'=>$data,
             'headers' => [
                 'X-Auth-Email' =>$account->email,
                 'X-Auth-Key' =>$account->auth_key,
