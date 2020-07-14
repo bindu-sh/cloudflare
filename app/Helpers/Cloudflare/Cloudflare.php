@@ -135,20 +135,38 @@ class Cloudflare{
     public static function purgeCacheForAll(Domain $domain){
         $account=Account::where(['account_id'=>$domain->account_id])->first();
 
-            $url='https://api.cloudflare.com/client/v4/zones/'.$domain->zoneid.'/purge_cache';
-            $client=new Client();
-            $response = $client->request('POST', $url, [
-                'json'=>[
-                    "purge_everything"=>true],
-                    'headers' => [
-                    'X-Auth-Email' =>$account->email,
-                    'X-Auth-Key' =>$account->auth_key,
-                    'Content-Type'=>'application/json'
-                ]
-            ]);
-            $data=$response->getBody()->getContents();
-            $res=json_decode($data, true);
-           return $res;
+        $url='https://api.cloudflare.com/client/v4/zones/'.$domain->zoneid.'/purge_cache';
+        $client=new Client();
+        $response = $client->request('POST', $url, [
+            'json'=>[
+                "purge_everything"=>true],
+            'headers' => [
+                'X-Auth-Email' =>$account->email,
+                'X-Auth-Key' =>$account->auth_key,
+                'Content-Type'=>'application/json'
+            ]
+        ]);
+        $data=$response->getBody()->getContents();
+        $res=json_decode($data, true);
+        return $res;
+
+    }
+    public static function purgeCacheFiles(Domain $domain,$data){
+        $account=Account::where(['account_id'=>$domain->account_id])->first();
+
+        $url='https://api.cloudflare.com/client/v4/zones/'.$domain->zoneid.'/purge_cache';
+        $client=new Client();
+        $response = $client->request('POST', $url, [
+            'json'=>$data,
+            'headers' => [
+                'X-Auth-Email' =>$account->email,
+                'X-Auth-Key' =>$account->auth_key,
+                'Content-Type'=>'application/json'
+            ]
+        ]);
+        $data=$response->getBody()->getContents();
+        $res=json_decode($data, true);
+        return $res;
 
     }
 }

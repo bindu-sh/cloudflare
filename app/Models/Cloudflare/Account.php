@@ -11,6 +11,7 @@ class Account extends Model
     protected $fillable = [
         'id', 'account_name', 'notes',
     ];
+    
     public function domains(){
         return $this->hasMany("App\Models\Cloudflare\Domain", "account_id");
     }
